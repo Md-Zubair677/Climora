@@ -1,4 +1,5 @@
 """Streamlit chat frontend for Climora."""
+import html
 import sys
 import uuid
 from pathlib import Path
@@ -313,7 +314,7 @@ def _meta_html(result: dict) -> str:
         ids = ", ".join(s["id"] for s in result["secondary_sops"])
         bits.append(f'<span class="meta-pill"><strong>also</strong> {ids}</span>')
     if result.get("resolved_place_name"):
-        bits.append(f'<span class="meta-pill">📍 {result["resolved_place_name"]}</span>')
+        bits.append(f'<span class="meta-pill">📍 {html.escape(result["resolved_place_name"])}</span>')
     bits.append(f'<span class="meta-pill"><strong>route</strong> {result["route"]}</span>')
     return '<div class="meta-row">' + "".join(bits) + "</div>"
 
