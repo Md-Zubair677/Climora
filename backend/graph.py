@@ -203,25 +203,11 @@ def match_sops_node(state: AgentState) -> dict[str, Any]:
         return {"weather_failed": True, "error_detail": f"Policy matching unavailable: {exc}"}
     matched_ids = [i for i in result.get("matched_ids", []) if i in valid_ids]
     matched = [s for s in sops if s["id"] in matched_ids]
+    # Always merge with keyword fallback as a safety net
+    keyword_matched = _keyword_match_sops(state["raw_question"], state.get("activity_hint"), sops)
+    merged_ids = {s["id"] for s in matched} | {s["id"] for s in keyword_matched}
+    matched = [s for s in sops if s["id"] in merged_ids]
     matched.sort(key=lambda s: severity_rank(s["severity"]), reverse=True)
-    if not matched:
-        # Fallback: if LLM returned no matches but activity is clearly covered,
-        # match by keyword against SOP conditions deterministically.
-        q = state["raw_question"].lower()
-        activity = (state.get("activity_hint") or "").lower()
-        fallback = []
-        if any(w in q or w in activity for w in ["cycl", "bik", "two-wheel", "scooter", "motorcycle"]):
-            fallback += [s for s in sops if s["id"] in ("SOP-001", "SOP-002", "SOP-003")]
-        if any(w in q or w in activity for w in ["run", "jog", "walk", "exercise", "sport"]):
-            fallback += [s for s in sops if s["id"] in ("SOP-001", "SOP-003")]
-        if any(w in q or w in activity for w in ["child", "kid", "park", "play"]):
-            fallback += [s for s in sops if s["id"] in ("SOP-009",)]
-        if any(w in q or w in activity for w in ["drive", "travel", "commut", "road"]):
-            fallback += [s for s in sops if s["id"] in ("SOP-005",)]
-        # deduplicate preserving order
-        seen = set()
-        matched = [s for s in fallback if not (s["id"] in seen or seen.add(s["id"]))]
-        matched.sort(key=lambda s: severity_rank(s["severity"]), reverse=True)
     if not matched:
         return {"matched_sops": [], "primary_sop": None, "secondary_sops": []}
     return {
