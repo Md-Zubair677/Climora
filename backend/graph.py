@@ -82,9 +82,28 @@ def _summarize_weather(data: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-# ---------------------------------------------------------------------------
-# Nodes
-# ---------------------------------------------------------------------------
+def _keyword_match_sops(question: str, activity_hint: str, sops: list) -> list:
+    """Deterministic keyword fallback — always runs as a safety net."""
+    q = question.lower()
+    a = (activity_hint or "").lower()
+    sop_map = {s["id"]: s for s in sops}
+    ids = set()
+    if any(w in q or w in a for w in ["cycl", "bik", "two-wheel", "scooter", "motorcycle"]):
+        ids.update(["SOP-001", "SOP-002", "SOP-003"])
+    if any(w in q or w in a for w in ["run", "jog", "exercise", "sport", "gym"]):
+        ids.update(["SOP-001", "SOP-003"])
+    if any(w in q or w in a for w in ["child", "kid", "park", "play", "school"]):
+        ids.update(["SOP-009"])
+    if any(w in q or w in a for w in ["elder", "grandp", "senior", "old"]):
+        ids.update(["SOP-008"])
+    if any(w in q or w in a for w in ["dog", "pet", "pup"]):
+        ids.update(["SOP-010"])
+    if any(w in q or w in a for w in ["drive", "travel", "commut", "road", "trip"]):
+        ids.update(["SOP-005"])
+    if any(w in q or w in a for w in ["picnic", "leisure", "outing", "walk", "stroll"]):
+        ids.update(["SOP-012"])
+    return [sop_map[i] for i in ids if i in sop_map]
+
 def parse_query_node(state: AgentState) -> dict[str, Any]:
     question = state["raw_question"]
     if _is_greeting(question):
