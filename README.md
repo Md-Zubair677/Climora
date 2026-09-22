@@ -1,5 +1,7 @@
 # Climora
 
+**Live app:** [climora.streamlit.app](https://climora.streamlit.app)
+
 Climora is a weather-safety assistant for outdoor activity decisions. It answers questions like “Is it safe to cycle today?” by combining live weather data, a structured safety policy catalog, and a guided reasoning flow so the recommendation stays grounded in real conditions.
 
 ## Why this project exists
