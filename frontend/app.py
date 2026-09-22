@@ -113,23 +113,34 @@ st.markdown(
       margin: 1.2rem 0 0.7rem;
     }
 
-    .starter {
-      background: rgba(18, 28, 38, 0.95);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 0.9rem 1rem;
-      min-height: 96px;
-      box-shadow: 0 10px 26px rgba(0,0,0,0.08);
-      color: var(--text);
-      line-height: 1.5;
+    .starter-btn button {
+      background: rgba(18, 28, 38, 0.95) !important;
+      border: 1px solid var(--line) !important;
+      border-radius: 16px !important;
+      padding: 0.9rem 1rem !important;
+      min-height: 96px !important;
+      box-shadow: 0 10px 26px rgba(0,0,0,0.08) !important;
+      color: var(--text) !important;
+      line-height: 1.5 !important;
+      width: 100% !important;
+      text-align: left !important;
+      font-size: 0.9rem !important;
+      white-space: normal !important;
+      height: auto !important;
     }
 
-    .starter strong {
-      display: block;
+    .starter-btn button:hover {
+      border-color: var(--primary) !important;
+      background: rgba(125, 211, 252, 0.06) !important;
+    }
+
+    .starter-label {
       color: var(--primary);
       font-size: 0.68rem;
+      font-weight: 700;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      display: block;
       margin-bottom: 0.38rem;
     }
 
@@ -140,6 +151,40 @@ st.markdown(
       color: var(--muted);
       font-size: 0.82rem;
       line-height: 1.8;
+    }
+
+    .weather-card {
+      background: rgba(17, 27, 39, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 0.9rem 1.1rem;
+      margin-bottom: 0.8rem;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .weather-stat {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 70px;
+    }
+
+    .weather-stat .val {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.1;
+    }
+
+    .weather-stat .lbl {
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.2rem;
     }
 
     .meta-row {
@@ -159,9 +204,12 @@ st.markdown(
       color: var(--text);
     }
 
-    .meta-pill strong {
-      color: var(--primary);
-    }
+    .meta-pill strong { color: var(--primary); }
+
+    .sev-critical { background: rgba(239,68,68,0.15); border-color: rgba(239,68,68,0.4); color: #fca5a5; }
+    .sev-high     { background: rgba(249,115,22,0.15); border-color: rgba(249,115,22,0.4); color: #fdba74; }
+    .sev-medium   { background: rgba(234,179,8,0.15); border-color: rgba(234,179,8,0.4); color: #fde047; }
+    .sev-low      { background: rgba(34,197,94,0.15); border-color: rgba(34,197,94,0.4); color: #86efac; }
 
     [data-testid="stChatMessage"] {
       border: 0;
@@ -209,11 +257,90 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# ---------------------------------------------------------------------------
+# Session state
+# ---------------------------------------------------------------------------
 if "thread_id" not in st.session_state:
     st.session_state.thread_id = str(uuid.uuid4())
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
+if "pending_question" not in st.session_state:
+    st.session_state.pending_question = None
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+SEV_EMOJI = {"critical": "🔴", "high": "🟠", "medium": "🟡", "low": "🟢"}
+SEV_CLASS = {"critical": "sev-critical", "high": "sev-high", "medium": "sev-medium", "low": "sev-low"}
+
+
+def _weather_card(weather_data: dict) -> str:
+    if not weather_data:
+        return ""
+    current = weather_data.get("current", {})
+    daily = weather_data.get("daily", {})
+    temp = current.get("temperature_2m", "—")
+    uv = current.get("uv_index", None)
+    if uv is None:
+        uv = (daily.get("uv_index_max") or [None])[0]
+    rain = (daily.get("precipitation_probability_max") or [None])[0]
+    wind = current.get("wind_speed_10m", "—")
+    humidity = current.get("relative_humidity_2m", "—")
+
+    def stat(val, label):
+        return f'<div class="weather-stat"><span class="val">{val}</span><span class="lbl">{label}</span></div>'
+
+    parts = [stat(f"{temp}°C", "Temp")]
+    if uv is not None:
+        parts.append(stat(round(uv, 1), "UV Index"))
+    if rain is not None:
+        parts.append(stat(f"{rain}%", "Rain"))
+    parts.append(stat(f"{wind} km/h", "Wind"))
+    parts.append(stat(f"{humidity}%", "Humidity"))
+    return '<div class="weather-card">' + "".join(parts) + "</div>"
+
+
+def _meta_html(result: dict) -> str:
+    bits = []
+    sop = result.get("primary_sop")
+    if sop:
+        sev = sop.get("severity", "low")
+        emoji = SEV_EMOJI.get(sev, "")
+        cls = SEV_CLASS.get(sev, "")
+        bits.append(f'<span class="meta-pill {cls}">{emoji} <strong>{sev}</strong></span>')
+        bits.append(f'<span class="meta-pill"><strong>{sop["id"]}</strong> {sop["title"]}</span>')
+    if result.get("secondary_sops"):
+        ids = ", ".join(s["id"] for s in result["secondary_sops"])
+        bits.append(f'<span class="meta-pill"><strong>also</strong> {ids}</span>')
+    if result.get("resolved_place_name"):
+        bits.append(f'<span class="meta-pill">📍 {result["resolved_place_name"]}</span>')
+    bits.append(f'<span class="meta-pill"><strong>route</strong> {result["route"]}</span>')
+    return '<div class="meta-row">' + "".join(bits) + "</div>"
+
+
+def _run_question(question: str):
+    with st.chat_message("user"):
+        st.markdown(question)
+    st.session_state.chat_history.append(("user", question, None))
+    with st.chat_message("assistant"):
+        with st.spinner("Checking live conditions and matching policy..."):
+            try:
+                result = ask(question, thread_id=st.session_state.thread_id)
+            except Exception as exc:  # noqa: BLE001
+                st.error(f"The advisory desk is temporarily unavailable: {exc}")
+                st.stop()
+        weather_html = _weather_card(result.get("weather_data"))
+        if weather_html:
+            st.markdown(weather_html, unsafe_allow_html=True)
+        st.markdown(result["answer"])
+        meta = _meta_html(result)
+        st.markdown(meta, unsafe_allow_html=True)
+    st.session_state.chat_history.append(("assistant", result["answer"], (weather_html or "") + meta))
+
+
+# ---------------------------------------------------------------------------
+# Sidebar
+# ---------------------------------------------------------------------------
 with st.sidebar:
     st.markdown("### 🌦️ Climora")
     st.caption("Simple weather + safety check")
@@ -225,17 +352,33 @@ with st.sidebar:
         st.rerun()
     st.markdown('<div class="status-bar">Live weather<br>Safety policy check<br>Session memory on</div>', unsafe_allow_html=True)
 
+# ---------------------------------------------------------------------------
+# Header
+# ---------------------------------------------------------------------------
 st.markdown('<div class="topline"><span class="brand-mark">CLIMORA</span><span>Weather check, plain and simple</span></div>', unsafe_allow_html=True)
-st.markdown('<section class="hero"><div class="hero-kicker">Outdoor advice, grounded in today\'s weather</div><h1>Should I head out?</h1><p class="hero-copy">Ask about cycling, kids, pets, travel, or a quick park outing. I’ll check the live conditions and tell you what the relevant safety rule says.</p></section>', unsafe_allow_html=True)
+st.markdown('<section class="hero"><div class="hero-kicker">Outdoor advice, grounded in today\'s weather</div><h1>Should I head out?</h1><p class="hero-copy">Ask about cycling, kids, pets, travel, or a quick park outing. I\'ll check the live conditions and tell you what the relevant safety rule says.</p></section>', unsafe_allow_html=True)
 
+# ---------------------------------------------------------------------------
+# Starter cards (clickable)
+# ---------------------------------------------------------------------------
 if not st.session_state.chat_history:
     st.markdown('<div class="section-label">Try one</div>', unsafe_allow_html=True)
-    starter_cols = st.columns(3)
-    starters = [("Ride", "Is it safe to cycle in Chennai today?"), ("Family", "Can I take my child to the park in Bengaluru?"), ("Leisure", "Would this afternoon be good for a picnic in Bhopal?")]
-    for column, (label, text) in zip(starter_cols, starters):
-        with column:
-            st.markdown(f'<div class="starter"><strong>{label}</strong>{text}</div>', unsafe_allow_html=True)
+    starters = [
+        ("🚴 Ride", "Is it safe to cycle in Chennai today?"),
+        ("👨‍👧 Family", "Can I take my child to the park in Bengaluru?"),
+        ("🧺 Leisure", "Would this afternoon be good for a picnic in Bhopal?"),
+    ]
+    cols = st.columns(3)
+    for col, (label, text) in zip(cols, starters):
+        with col:
+            st.markdown(f'<div class="starter-btn">', unsafe_allow_html=True)
+            if st.button(f"{label}\n\n{text}", key=f"starter_{label}", use_container_width=True):
+                st.session_state.pending_question = text
+            st.markdown('</div>', unsafe_allow_html=True)
 
+# ---------------------------------------------------------------------------
+# Chat history
+# ---------------------------------------------------------------------------
 st.markdown('<div class="section-label">Conversation</div>', unsafe_allow_html=True)
 for role, text, meta in st.session_state.chat_history:
     with st.chat_message(role):
@@ -243,28 +386,18 @@ for role, text, meta in st.session_state.chat_history:
         if meta:
             st.markdown(meta, unsafe_allow_html=True)
 
+# ---------------------------------------------------------------------------
+# Handle pending starter click
+# ---------------------------------------------------------------------------
+if st.session_state.pending_question:
+    q = st.session_state.pending_question
+    st.session_state.pending_question = None
+    _run_question(q)
+    st.rerun()
+
+# ---------------------------------------------------------------------------
+# Chat input
+# ---------------------------------------------------------------------------
 question = st.chat_input("Ask about an activity, city, and time...")
 if question:
-    with st.chat_message("user"):
-        st.markdown(question)
-    st.session_state.chat_history.append(("user", question, None))
-    with st.chat_message("assistant"):
-        with st.spinner("Checking live conditions and matching policy..."):
-            try:
-                result = ask(question, thread_id=st.session_state.thread_id)
-            except Exception as exc:  # noqa: BLE001
-                st.error(f"The advisory desk is temporarily unavailable: {exc}")
-                st.stop()
-        st.markdown(result["answer"])
-        meta_bits = [f'<span class="meta-pill"><strong>route</strong> {result["route"]}</span>']
-        if result.get("primary_sop"):
-            sop = result["primary_sop"]
-            meta_bits.append(f'<span class="meta-pill"><strong>{sop["id"]}</strong> {sop["title"]}</span>')
-        if result.get("secondary_sops"):
-            ids = ", ".join(s["id"] for s in result["secondary_sops"])
-            meta_bits.append(f'<span class="meta-pill"><strong>also</strong> {ids}</span>')
-        if result.get("resolved_place_name"):
-            meta_bits.append(f'<span class="meta-pill"><strong>location</strong> {result["resolved_place_name"]}</span>')
-        meta = '<div class="meta-row">' + "".join(meta_bits) + "</div>"
-        st.markdown(meta, unsafe_allow_html=True)
-    st.session_state.chat_history.append(("assistant", result["answer"], meta))
+    _run_question(question)
