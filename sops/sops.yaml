@@ -1,0 +1,187 @@
+# =============================================================================
+# Standard Operating Procedures (SOPs) — Climora
+# =============================================================================
+# This file is the ENTIRE policy layer. Adding, editing, or removing an SOP
+# here changes bot behavior with zero code changes — that's the point.
+#
+# Fields:
+#   id         - stable identifier, cited back to the user, never invented by the LLM
+#   category   - outdoor_exercise | travel | vulnerable_groups | leisure | override
+#   severity   - low | medium | high | critical  (used to rank when >1 SOP matches)
+#   condition  - plain-language trigger. The matching LLM reads this against live
+#                weather data + the user's question — NOT a numeric parser. This is
+#                deliberate: conditions like "well-marked low-pressure system" don't
+#                reduce to a single field/threshold check, and paraphrased user intent
+#                (not keyword match) has to be understood.
+#   guidance   - the advice to give when this SOP fires. The composer LLM must ground
+#                this template in the actual numbers pulled from the API for this
+#                request — never numbers it recalls or estimates.
+# =============================================================================
+
+- id: SOP-001
+  category: outdoor_exercise
+  severity: high
+  title: High UV Exercise Window
+  condition: >
+    The user is asking about outdoor exercise, sport, or exertion (running, cycling,
+    gym-outdoors, sports practice, etc.) AND the forecast UV index is 8 or higher at
+    any point between 11:00 and 16:00 local time on the day in question.
+  guidance: >
+    Advise against unprotected outdoor exercise during the 11am-4pm window. Recommend
+    SPF 30+ sunscreen, sunglasses, and a hat if they exercise anyway, and recommend
+    rescheduling to early morning or evening when UV is lower. State the actual peak
+    UV index pulled from the forecast.
+
+- id: SOP-002
+  category: outdoor_exercise
+  severity: high
+  title: High Wind Cycling / Two-Wheeler Risk
+  condition: >
+    The user mentions cycling, biking, a motorcycle/scooter, or any two-wheeler AND
+    forecast wind speed or wind gusts exceed 40 km/h at the relevant time.
+  guidance: >
+    Flag this as a genuine safety risk, not a comfort issue — gusts at this level can
+    destabilize a two-wheeler, especially on open roads or bridges. Recommend avoiding
+    two-wheeler travel during the flagged window if possible, or taking a
+    wind-sheltered route. State the actual wind speed/gust figure pulled from the API.
+
+- id: SOP-003
+  category: outdoor_exercise
+  severity: medium
+  title: Heat & Humidity Exercise Caution
+  condition: >
+    The user is asking about outdoor exercise or exertion AND forecast temperature is
+    35°C or higher, regardless of UV index.
+  guidance: >
+    Advise caution rather than cancellation: recommend hydrating well before/during,
+    exercising in early morning or evening, and taking breaks in shade. State the
+    actual forecast temperature.
+
+- id: SOP-004
+  category: outdoor_exercise
+  severity: low
+  title: Cold-Weather Outdoor Exercise
+  condition: >
+    The user is asking about outdoor exercise AND forecast temperature is 5°C or
+    below at the relevant time.
+  guidance: >
+    Note that outdoor exercise is generally fine in cold conditions but recommend
+    layered clothing, a warm-up indoors first, and awareness of wind chill if wind
+    speed is also elevated. State the actual forecast temperature.
+
+- id: SOP-005
+  category: travel
+  severity: medium
+  title: Precipitation Travel Delay Warning
+  condition: >
+    The user is asking about travel, commuting, driving, or being on the road AND
+    forecast precipitation probability is 70% or higher for the relevant window.
+  guidance: >
+    Warn of possible delays (traffic, waterlogging, reduced visibility) and recommend
+    checking for local traffic/transit alerts before departure, and allowing extra
+    travel time. State the actual precipitation probability.
+
+- id: SOP-006
+  category: travel
+  severity: high
+  title: Squally Wind / Coastal Travel Advisory
+  condition: >
+    The user is asking about travel, especially coastal or boat/ferry travel, AND
+    forecast wind speed or gusts exceed 45 km/h, OR the location is near a coastline
+    currently under a wind advisory.
+  guidance: >
+    Advise against small-boat or ferry travel and caution for coastal road travel;
+    recommend checking official maritime/coastal advisories before departure. State
+    the actual wind speed/gust figures.
+
+- id: SOP-007
+  category: travel
+  severity: medium
+  title: Low Visibility / Fog Travel Caution
+  condition: >
+    The user is asking about travel, driving, or an early-morning commute AND
+    forecast conditions indicate fog, mist, or very low visibility (e.g. weather code
+    indicating fog, or high humidity with low temperature spread in early morning
+    hours).
+  guidance: >
+    Recommend delaying travel until visibility improves if possible, using fog lamps
+    and reduced speed if driving is unavoidable, and allowing extra travel time.
+
+- id: SOP-008
+  category: vulnerable_groups
+  severity: high
+  title: Elderly Heat Vulnerability
+  condition: >
+    The user's question involves an elderly person (parent, grandparent, senior
+    citizen, etc.) going outdoors AND forecast temperature is 33°C or higher, or UV
+    index is 7 or higher.
+  guidance: >
+    Recommend limiting outdoor time for elderly individuals to short windows outside
+    peak heat (before 10am or after 5pm), ensuring hydration, and watching for signs
+    of heat exhaustion. Treat this more conservatively than the general adult exercise
+    threshold. State the actual temperature and/or UV figure.
+
+- id: SOP-009
+  category: vulnerable_groups
+  severity: medium
+  title: Children's UV / Heat Exposure
+  condition: >
+    The user's question involves a child or children (park visit, school outdoor
+    activity, playtime, etc.) AND either UV index is 6 or higher, or temperature is
+    32°C or higher.
+  guidance: >
+    Recommend sunscreen, hats, shaded play areas, and hydration breaks; suggest
+    shifting outdoor playtime earlier or later in the day if UV/heat is elevated.
+    State the actual UV index and/or temperature.
+
+- id: SOP-010
+  category: vulnerable_groups
+  severity: medium
+  title: Pet Pavement & Heat Safety
+  condition: >
+    The user's question involves a pet (dog walk, pet outdoors, etc.) AND forecast
+    temperature is 30°C or higher.
+  guidance: >
+    Warn that pavement/asphalt can be significantly hotter than air temperature and
+    may burn paws; recommend the 7-second hand test, walking during cooler hours, and
+    carrying water for the pet. State the actual forecast temperature.
+
+- id: SOP-011
+  category: override
+  severity: critical
+  title: Active Severe Weather System Override
+  condition: >
+    There is a well-marked low-pressure area, cyclonic circulation, depression, or
+    similar named/flagged severe weather system actively affecting the user's
+    location, bringing heavy-to-very-heavy rainfall, damaging wind gusts, or similar
+    hazardous conditions — REGARDLESS of the specific category the user asked about
+    (exercise, travel, leisure, etc.), and even if no single numeric field in
+    isolation looks extreme. This SOP is about situational/systemic risk, not a
+    single threshold.
+  guidance: >
+    Treat the question as high severity regardless of its original category. Lead
+    the answer with the active weather system itself (what it is, what it's bringing)
+    BEFORE any activity-specific advice. Advise strongly against non-essential
+    outdoor activity of any kind until the system passes, and recommend checking
+    official IMD/local authority advisories. State the actual precipitation, wind, or
+    other figures the forecast shows, even if individually they seem moderate — the
+    situational context is what drives the severity here.
+
+- id: SOP-012
+  category: leisure
+  severity: low
+  title: General Outdoor Leisure / Picnic Day Quality
+  condition: >
+    The user is asking a general, non-numeric-threshold question about whether a day
+    is "good," "nice," or "pleasant" for a leisure outdoor activity (picnic, walk in
+    the park, outdoor gathering, sitting outside) rather than asking about a specific
+    hazard. This is a holistic judgment call, not a single if/then check: weigh
+    temperature comfort (roughly 18-30°C is pleasant), low precipitation probability,
+    moderate wind, and UV index together rather than any one factor alone.
+  guidance: >
+    Give a holistic, qualitative read (e.g. "pleasant," "a bit warm but manageable,"
+    "not ideal") based on the combination of temperature, precipitation probability,
+    wind, and UV — not a pass/fail threshold. Mention the one or two factors that
+    most influenced the read, with their actual values, and a practical tip (shade,
+    timing, sunscreen) if relevant. If conditions are genuinely poor, say so plainly
+    rather than softening it.
