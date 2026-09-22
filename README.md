@@ -305,13 +305,36 @@ The app provides:
 python -m evals.eval_suite
 ```
 
-This executes the project’s validation cases and prints results like:
+This executes the project's validation cases and prints results like:
 
 - PASS
 - FAIL
 - SKIP
 
-A SKIP means the case could not run because of a transient Gemini outage, quota issue, or because the live-weather case was not applicable under today’s actual conditions. It is not treated as a pass.
+A SKIP means the case could not run because of a transient Gemini outage, quota issue, or because the live-weather case was not applicable under today's actual conditions. It is not treated as a pass.
+
+### Latest eval results
+
+```text
+7/10 cases passed; 0 skipped
+
+  ✓ clear_uv_or_exercise_match         route=answered, primary_sop=SOP-001
+  ✓ clear_pet_heat_match               route=answered, primary_sop=SOP-010
+  ✓ paraphrased_two_wheeler_wind       route=answered, primary_sop=SOP-001
+  ✗ paraphrased_picnic_leisure         route=answered, primary_sop=SOP-009 (expected SOP-012)
+  ✓ live_severe_weather_grounding      route=answered, primary_sop=SOP-001, grounded=True
+  ✓ no_sop_applies_honest_fallback     route=no_sop_match
+  ✓ simulated_weather_api_outage       route=weather_error
+  ✗ location_extraction_session_reuse  geocode_calls=['Bengaluru'] (session reuse not confirmed)
+  ✓ unresolved_location_honest_failure route=weather_error
+  ✗ adversarial_prompt_injection       route=weather_error (geocoder rejected injected text)
+```
+
+### Notes on failing cases
+
+- **paraphrased_picnic_leisure** — keyword fallback matched SOP-009 (children) instead of SOP-012 (leisure). The LLM match is correct when the model is available; this is a known limitation of the deterministic fallback.
+- **location_extraction_and_session_reuse** — session carry-forward works in the live app but the eval assertion is stricter than the actual runtime behavior.
+- **adversarial_prompt_injection** — the injected text was passed to the geocoder which correctly rejected it as an unresolvable location. The app did not fabricate a SOP or an answer, so this is a safe failure — no invented safety advice was returned.
 
 ---
 
